@@ -45,29 +45,36 @@ exports.loginUser = async (req, res, next) => {
 };
 
 exports.protect = async (req, res, next) => {
-  // Check if there is header
-  console.log("header");
-  console.log(req.headers);
+  try {
+    // Check if there is header
+    console.log("header");
+    console.log(req.headers);
 
-  var token = req.headers["cookie"].split("=")[1];
+    var token = req.headers["cookie"].split("=")[1];
+    // var token =
+    //   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1Y2I4MjA0YjRkZWFhYzJiMzU2ZTczYSIsImlhdCI6MTcwNzgzNjc1NCwiZXhwIjoxNzA3OTIzMTU0fQ.7fo4GmdtpATe9pR1PV-01LDCIQK6jL5zljlItijRYCM";
 
-  if (!token) {
-    return res.json("Rechech data!");
+    if (!token) {
+      return res.json("Rechech data!");
+    }
+    console.log(token);
+
+    // Check if the token is verified
+    console.log("Hello!");
+    const decoded = await promisify(jwt.verify)(token, "secret-key");
+
+    console.log(decoded.id);
+    const userId = decoded.id;
+
+    const checkUser = await User.findById({ _id: userId });
+    // console.log(checkUser);
+    if (!checkUser) {
+      return res.json("Rechech data!");
+    }
+
+    next();
+  } catch (err) {
+    console.log(err);
+    return res.json("Recheck Data!");
   }
-  console.log(token);
-
-  // Check if the token is verified
-  console.log("Hello!");
-  const decoded = await promisify(jwt.verify)(token, "secret-key");
-
-  console.log(decoded.id);
-  const userId = decoded.id;
-
-  const checkUser = await User.findById({ _id: userId });
-  // console.log(checkUser);
-  if (!checkUser) {
-    return res.json("Rechech data!");
-  }
-
-  next();
 };
