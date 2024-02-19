@@ -4,44 +4,70 @@ const jwt = require("jsonwebtoken");
 const { promisify } = require("util");
 
 exports.signUser = async (req, res) => {
-  const newUser = await User.create(req.body);
+  try {
+    const userAlreadyExists = await User.findOne({ email: req.body.email });
+    if (userAlreadyExists) {
+      return res.json({
+        status: "Error",
+        Message: "This EMail ID already exists!",
+      });
+    }
+    const newUser = await User.create(req.body);
 
-  res.status(201).json({
-    status: "success",
-    Message: "User Created!",
-  });
+    res.status(201).json({
+      status: "success",
+      Message: "User Created!",
+      User: newUser,
+    });
+  } catch (err) {
+    res.json({
+      status: "Error",
+      Message: err,
+    });
+  }
 };
 
 exports.loginUser = async (req, res, next) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  if (!email || !password) {
-    return nres.json("Rechech data!");
+    if (!email || !password) {
+      return res.json("Email or password not entered!");
+    }
+
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user) {
+      return res.json("This User Does not Exist, Recheck Email!");
+    }
+
+    const correctPassword = await user.comparePassword(user.password, password);
+
+    console.log(correctPassword);
+
+    if (!correctPassword) {
+      return res.json("Wrong Password Entered Please Check again!");
+    }
+
+    const token = jwt.sign({ id: user._id }, "secret-key", { expiresIn: "1d" });
+
+    res.cookie("jwt", token, {
+      expiresIn: "1d",
+      secure: true,
+      httpOnly: true,
+    });
+
+    res.status(201).json({
+      status: "success",
+      Message: "User Login Success!",
+      token: token,
+    });
+  } catch (err) {
+    res.json({
+      Status: "Error",
+      Message: err,
+    });
   }
-
-  const user = await User.findOne({ email }).select("+password");
-
-  const correctPassword = await user.comparePassword(user.password, password);
-
-  console.log(correctPassword);
-
-  if (!user || !correctPassword) {
-    return res.json("Rechech data!");
-  }
-
-  const token = jwt.sign({ id: user._id }, "secret-key", { expiresIn: "1d" });
-
-  res.cookie("jwt", token, {
-    expiresIn: "1d",
-    secure: true,
-    httpOnly: true,
-  });
-
-  res.status(201).json({
-    status: "success",
-    Message: "User Login Success!",
-    token: token,
-  });
 };
 
 exports.protect = async (req, res, next) => {
@@ -55,7 +81,7 @@ exports.protect = async (req, res, next) => {
     //   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY1Y2I4MjA0YjRkZWFhYzJiMzU2ZTczYSIsImlhdCI6MTcwNzgzNjc1NCwiZXhwIjoxNzA3OTIzMTU0fQ.7fo4GmdtpATe9pR1PV-01LDCIQK6jL5zljlItijRYCM";
 
     if (!token) {
-      return res.json("Rechech data!");
+      return res.json("Token Expired or Token Does not exist!");
     }
     console.log(token);
 
@@ -69,12 +95,15 @@ exports.protect = async (req, res, next) => {
     const checkUser = await User.findById({ _id: userId });
     // console.log(checkUser);
     if (!checkUser) {
-      return res.json("Rechech data!");
+      return res.json("Token Expired Login Again!");
     }
 
     next();
   } catch (err) {
     console.log(err);
-    return res.json("Recheck Data!");
+    return res.json({
+      Status: "Error",
+      Message: err,
+    });
   }
 };
